@@ -1,0 +1,54 @@
+# Example device inventory for ORBIT onboarding
+
+manager:
+  url: https://10.0.0.10
+  username: admin
+  password: admin
+  port: 443
+  verify: false
+
+controllers:
+  - ip: 172.16.0.101
+    password: admin  # optional, defaults to 'admin'
+    site_id: 100
+    system_ip: 10.100.0.1
+    hostname: vsmart1
+
+  - ip: 172.16.0.102
+    password: admin
+    site_id: 100
+    system_ip: 10.100.0.2
+    hostname: vsmart2
+
+validators:
+  - ip: 172.16.0.201
+    password: admin
+    site_id: 100
+    system_ip: 10.100.0.10
+    hostname: vbond1
+
+edges:
+  - serial: C8K-12345678-ABCD
+    system_ip: 10.1.0.1
+    site_id: 1
+    template_name: branch_template
+    values:
+      hostname: edge1
+      vpn0_inet_ip: 192.168.1.10/24
+      vpn0_mpls_ip: 10.10.1.10/24
+      vpn0_default_gateway: 192.168.1.1
+
+  - serial: C8K-87654321-EFGH
+    system_ip: 10.2.0.1
+    site_id: 2
+    template_name: branch_template
+    values:
+      hostname: edge2
+      vpn0_inet_ip: 192.168.2.10/24
+      vpn0_mpls_ip: 10.10.2.10/24
+
+  - serial: C8K-11223344-IJKL
+    system_ip: 10.3.0.1
+    site_id: 3
+    config_group: branch_config_group  # for 20.12+
+    values: {}
