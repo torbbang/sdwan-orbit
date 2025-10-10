@@ -1,0 +1,30 @@
+# ORBIT device inventory for containerlab sdwan-simple topology
+# Created from: sdwan-simple.clab.yml
+
+manager:
+  url: https://172.20.20.3
+  username: admin
+  password: admin
+  port: 443
+  verify: false
+
+controllers:
+  - ip: 10.0.0.2  # clab-sdwan-simple-controller (172.20.20.5)
+    password: admin
+    site_id: 1
+    system_ip: 1.1.1.20
+    hostname: controller
+
+validators:
+  - ip: 10.0.0.3  # clab-sdwan-simple-validator (172.20.20.4)
+    password: admin
+    site_id: 1
+    system_ip: 1.1.1.30
+    hostname: validator
+
+edges:
+  - serial: C8K-CEDGE-0000-0000-0000-000000000001  # clab-sdwan-simple-cedge (172.20.20.2)
+    system_ip: 1.1.1.1
+    site_id: 100
+    # No template or config-group specified - will only onboard and install certificate
+    # Add template_name or config_group here if you have them configured in vManage

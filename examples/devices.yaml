@@ -1,18 +1,25 @@
 # Example device inventory for ORBIT onboarding
+#
+# This file demonstrates how to configure devices for onboarding.
+# ORBIT is tool-agnostic - it works with device lists from any source
+# (containerlab, CML, Terraform, manual YAML, etc.)
 
+# vManage connection details
 manager:
-  url: https://10.0.0.10
+  url: https://10.0.0.10  # vManage URL
   username: admin
   password: admin
-  port: 443
-  verify: false
+  port: 443  # optional, defaults to 443
+  verify: false  # optional, SSL certificate verification (default: false)
 
+# vSmart controllers
+# Note: Devices must be reachable from vManage
 controllers:
-  - ip: 172.16.0.101
+  - ip: 172.16.0.101  # Management IP address
     password: admin  # optional, defaults to 'admin'
-    site_id: 100
-    system_ip: 10.100.0.1
-    hostname: vsmart1
+    site_id: 100  # optional
+    system_ip: 10.100.0.1  # optional
+    hostname: vsmart1  # optional
 
   - ip: 172.16.0.102
     password: admin
@@ -20,6 +27,7 @@ controllers:
     system_ip: 10.100.0.2
     hostname: vsmart2
 
+# vBond validators
 validators:
   - ip: 172.16.0.201
     password: admin
@@ -27,17 +35,23 @@ validators:
     system_ip: 10.100.0.10
     hostname: vbond1
 
+# WAN Edge devices
+# Note: Edges must have already discovered vBond and appear in vManage inventory
+# ORBIT handles the vManage-side operations: certificate installation, template attachment, etc.
 edges:
-  - serial: C8K-12345678-ABCD
-    system_ip: 10.1.0.1
-    site_id: 1
-    template_name: branch_template
-    values:
+  # Example 1: Edge with device template (vManage < 20.12)
+  - serial: C8K-12345678-ABCD  # Device serial number (required)
+    system_ip: 10.1.0.1  # System IP (required)
+    site_id: 1  # Site ID (required)
+    template_name: branch_template  # Device template to attach (optional)
+    values:  # Template variable values (optional)
       hostname: edge1
       vpn0_inet_ip: 192.168.1.10/24
       vpn0_mpls_ip: 10.10.1.10/24
       vpn0_default_gateway: 192.168.1.1
+      # Add any other template-specific variables here
 
+  # Example 2: Edge with device template and minimal variables
   - serial: C8K-87654321-EFGH
     system_ip: 10.2.0.1
     site_id: 2
@@ -47,8 +61,41 @@ edges:
       vpn0_inet_ip: 192.168.2.10/24
       vpn0_mpls_ip: 10.10.2.10/24
 
+  # Example 3: Edge with configuration group (vManage 20.12+)
+  # Note: Both templates and config-groups work in 20.12+
+  # Config-groups are RECOMMENDED for 20.12+ (modern approach)
+  # Templates still work but are legacy (use for backward compatibility)
   - serial: C8K-11223344-IJKL
     system_ip: 10.3.0.1
     site_id: 3
-    config_group: branch_config_group  # for 20.12+
-    values: {}
+    config_group: branch_config_group  # Configuration group to attach (optional)
+    values:  # Config group variable values (optional)
+      hostname: edge3
+      vpn0_inet_ip: 192.168.3.10/24
+
+  # Example 4: Edge without template/config-group (certificate only)
+  # Useful when you only want to onboard the device without configuration
+  - serial: C8K-AABBCCDD-MNOP
+    system_ip: 10.4.0.1
+    site_id: 4
+    # No template_name or config_group specified
+    # Device will be onboarded and certificate installed, but no config attached
+
+# Usage examples:
+#
+# 1. Onboard all devices:
+#    orbit onboard devices.yaml
+#
+# 2. Programmatic usage:
+#    from sdwan_orbit import Orbit
+#    orch = Orbit.from_file("devices.yaml")
+#    results = orch.onboard()
+#
+# 3. Skip already onboarded devices:
+#    orbit onboard devices.yaml --skip-existing
+#
+# 4. Backup configuration:
+#    orbit backup --manager https://10.0.0.10 -u admin -p admin /backup
+#
+# 5. Restore configuration:
+#    orbit restore --manager https://10.0.0.10 -u admin -p admin /backup --attach

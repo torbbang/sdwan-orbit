@@ -14,6 +14,8 @@ from sdwan_orbit.exceptions import (
     CredentialError,
     DeviceNotFoundError,
     OnboardingTimeoutError,
+    TemplateError,
+    AttachmentError,
 )
 
 
@@ -152,18 +154,81 @@ class DeviceOnboarder:
 
         Raises:
             OnboardingError: If onboarding fails
+            DeviceNotFoundError: If edge device not found by serial number
         """
         logger.info(f"Onboarding {len(edges)} edge device(s)")
 
-        # TODO: Implement edge onboarding logic
-        # This requires:
-        # 1. Wait for edges to appear in device inventory
-        # 2. Accept devices / generate certificates
-        # 3. Attach templates or config groups
-        # 4. Wait for sync complete
+        device_uuids = []
 
-        logger.warning("Edge onboarding not yet implemented")
-        return []
+        for i, edge in enumerate(edges, 1):
+            logger.info(
+                f"Processing edge {i}/{len(edges)}: serial={edge.serial}, "
+                f"system_ip={edge.system_ip}, site_id={edge.site_id}"
+            )
+
+            try:
+                # Find device by serial number
+                device_uuid = self._find_edge_by_serial(edge.serial)
+
+                if not device_uuid:
+                    raise DeviceNotFoundError(
+                        f"Edge device with serial {edge.serial} not found in vManage inventory. "
+                        "Ensure the device has discovered vBond and appears in device inventory."
+                    )
+
+                # Check if already onboarded
+                if skip_existing:
+                    device_details = self.device_inventory.get_device_details("vedges")
+                    device = device_details.filter(uuid=device_uuid).single_or_default()
+
+                    if device and device.cert_install_status == "Installed":
+                        logger.info(
+                            f"Edge {edge.serial} (UUID: {device_uuid}) already has certificate installed, skipping"
+                        )
+                        device_uuids.append(device_uuid)
+                        continue
+
+                # Wait for certificate to be installed (device auto-installs after vBond discovery)
+                self._wait_for_certificate(device_uuid, timeout=300)
+
+                device_uuids.append(device_uuid)
+                logger.info(f"Edge {edge.serial} certificate installed successfully")
+
+                # Attach template or config group if specified
+                if edge.template_name:
+                    logger.info(f"Attaching template '{edge.template_name}' to edge {edge.serial}")
+                    self.attach_template(
+                        device_uuid=device_uuid,
+                        template_name=edge.template_name,
+                        variables={
+                            "system_ip": edge.system_ip,
+                            "site_id": edge.site_id,
+                            **edge.values,
+                        },
+                    )
+                elif edge.config_group:
+                    logger.info(f"Attaching config-group '{edge.config_group}' to edge {edge.serial}")
+                    self.attach_config_group(
+                        device_uuid=device_uuid,
+                        config_group_name=edge.config_group,
+                        variables={
+                            "system_ip": edge.system_ip,
+                            "site_id": edge.site_id,
+                            **edge.values,
+                        },
+                    )
+                else:
+                    logger.info(f"No template or config-group specified for edge {edge.serial}, skipping attachment")
+
+            except DeviceNotFoundError:
+                raise
+            except Exception as e:
+                raise OnboardingError(
+                    f"Failed to onboard edge {edge.serial}: {e}"
+                ) from e
+
+        logger.info(f"Successfully onboarded {len(device_uuids)} edge device(s)")
+        return device_uuids
 
     def wait_for_onboarding(
         self, device_uuids: List[str], timeout: int = 600, poll_interval: int = 10
@@ -360,3 +425,307 @@ class DeviceOnboarder:
         cert_valid = cert_status in ["certinstalled", "installed"]
 
         return reachable and cert_valid
+
+    def _find_edge_by_serial(self, serial: str) -> Optional[str]:
+        """Find edge device by serial number.
+
+        Args:
+            serial: Device serial number
+
+        Returns:
+            Device UUID or None if not found
+        """
+        try:
+            device_list = self.device_inventory.get_device_details("vedges")
+            # Filter by serial number
+            for device in device_list:
+                if device.serial_number == serial or device.uuid == serial:
+                    logger.debug(f"Found edge device: serial={serial}, uuid={device.uuid}")
+                    return device.uuid
+        except Exception as e:
+            logger.debug(f"Error finding edge by serial {serial}: {e}")
+
+        return None
+
+    def _wait_for_certificate(
+        self, device_uuid: str, timeout: int = 300, poll_interval: int = 10
+    ) -> bool:
+        """Wait for device certificate to be installed.
+
+        Args:
+            device_uuid: Device UUID
+            timeout: Maximum time to wait in seconds (default: 300)
+            poll_interval: Seconds between status checks (default: 10)
+
+        Returns:
+            True if certificate is installed
+
+        Raises:
+            OnboardingTimeoutError: If certificate not installed within timeout
+        """
+        logger.info(f"Waiting for certificate installation on device {device_uuid}")
+
+        start_time = time.time()
+
+        while True:
+            elapsed = time.time() - start_time
+            if elapsed > timeout:
+                raise OnboardingTimeoutError(
+                    f"Timeout waiting for certificate installation on device {device_uuid}"
+                )
+
+            try:
+                device_details = self.device_inventory.get_device_details("vedges")
+                device = device_details.filter(uuid=device_uuid).single_or_default()
+
+                if device and device.cert_install_status == "Installed":
+                    logger.info(f"Certificate installed on device {device_uuid}")
+                    return True
+
+                # Log progress
+                if int(elapsed) % 30 == 0 and elapsed > 0:
+                    logger.info(
+                        f"Waiting for certificate on {device_uuid}... ({int(elapsed)}s elapsed)"
+                    )
+
+            except Exception as e:
+                logger.debug(f"Error checking certificate status for {device_uuid}: {e}")
+
+            time.sleep(poll_interval)
+
+    def attach_template(
+        self, device_uuid: str, template_name: str, variables: Dict
+    ) -> bool:
+        """Attach device template to edge device.
+
+        Args:
+            device_uuid: Device UUID
+            template_name: Name of device template to attach
+            variables: Template variable values (must include system_ip, site_id, etc.)
+
+        Returns:
+            True if attachment successful
+
+        Raises:
+            TemplateError: If template not found
+            AttachmentError: If attachment fails
+        """
+        logger.info(f"Attaching template '{template_name}' to device {device_uuid}")
+
+        try:
+            # Get template ID by name
+            templates_response = self.session.get("dataservice/template/device").json()
+            templates = templates_response.get("data", [])
+
+            template_id = None
+            for template in templates:
+                if template.get("templateName") == template_name:
+                    template_id = template.get("templateId")
+                    break
+
+            if not template_id:
+                raise TemplateError(
+                    f"Device template '{template_name}' not found in vManage"
+                )
+
+            logger.debug(f"Found template '{template_name}' with ID {template_id}")
+
+            # Get device details for hostname
+            device_details = self.device_inventory.get_device_details("vedges")
+            device = device_details.filter(uuid=device_uuid).single_or_default()
+
+            if not device:
+                raise DeviceNotFoundError(f"Device {device_uuid} not found")
+
+            # Build attachment payload
+            # Template variables need specific naming conventions
+            variables_dict = {
+                "csv-status": "complete",
+                "csv-deviceId": device_uuid,
+                "csv-deviceIP": device.device_ip or variables.get("system_ip"),
+                "csv-host-name": device.host_name or f"Edge{variables.get('site_id')}",
+                "//system/host-name": device.host_name or f"Edge{variables.get('site_id')}",
+                "//system/system-ip": variables.get("system_ip"),
+                "//system/site-id": str(variables.get("site_id")),
+                "csv-templateId": template_id,
+            }
+
+            # Add custom variables
+            for key, value in variables.items():
+                if key not in ["system_ip", "site_id"]:
+                    variables_dict[key] = value
+
+            attach_payload = {
+                "deviceTemplateList": [
+                    {
+                        "templateId": template_id,
+                        "device": [variables_dict],
+                        "isEdited": False,
+                        "isMasterEdited": False,
+                    }
+                ]
+            }
+
+            # Attach template
+            response = self.session.post(
+                "dataservice/template/device/config/attachfeature",
+                json=attach_payload,
+            )
+
+            if response.status_code not in [200, 201]:
+                raise AttachmentError(
+                    f"Failed to attach template: {response.status_code} - {response.text}"
+                )
+
+            task_id = response.json().get("id")
+            logger.info(f"Template attachment initiated, task ID: {task_id}")
+
+            # Wait for task completion
+            self._wait_for_task(task_id, timeout=600)
+
+            logger.info(f"Template '{template_name}' attached successfully to {device_uuid}")
+            return True
+
+        except (TemplateError, AttachmentError, DeviceNotFoundError):
+            raise
+        except Exception as e:
+            raise AttachmentError(
+                f"Failed to attach template '{template_name}': {e}"
+            ) from e
+
+    def attach_config_group(
+        self, device_uuid: str, config_group_name: str, variables: Dict
+    ) -> bool:
+        """Attach configuration group to edge device (vManage 20.12+).
+
+        Args:
+            device_uuid: Device UUID
+            config_group_name: Name of configuration group to attach
+            variables: Configuration group variable values
+
+        Returns:
+            True if attachment successful
+
+        Raises:
+            TemplateError: If config group not found
+            AttachmentError: If attachment fails
+        """
+        logger.info(f"Attaching config-group '{config_group_name}' to device {device_uuid}")
+
+        try:
+            # Get configuration group ID by name
+            config_groups_response = self.session.get("dataservice/v1/config-group").json()
+
+            config_group_id = None
+            for cfg_group in config_groups_response:
+                if cfg_group.get("name") == config_group_name:
+                    config_group_id = cfg_group.get("id")
+                    break
+
+            if not config_group_id:
+                raise TemplateError(
+                    f"Configuration group '{config_group_name}' not found in vManage. "
+                    "Ensure vManage version is 20.12 or higher."
+                )
+
+            logger.debug(f"Found config-group '{config_group_name}' with ID {config_group_id}")
+
+            # Build variables payload
+            variables_list = []
+            for key, value in variables.items():
+                variables_list.append({"name": key, "value": value})
+
+            # Associate device with config group
+            associate_payload = {
+                "devices": [{"id": device_uuid}]
+            }
+
+            # First, associate the device
+            response = self.session.post(
+                f"dataservice/v1/config-group/{config_group_id}/device/associate",
+                json=associate_payload,
+            )
+
+            if response.status_code not in [200, 201]:
+                raise AttachmentError(
+                    f"Failed to associate device with config-group: {response.status_code} - {response.text}"
+                )
+
+            # Deploy variables if provided
+            if variables_list:
+                deploy_payload = {
+                    "devices": [
+                        {
+                            "id": device_uuid,
+                            "variables": variables_list
+                        }
+                    ]
+                }
+
+                deploy_response = self.session.post(
+                    f"dataservice/v1/config-group/{config_group_id}/device/variables",
+                    json=deploy_payload,
+                )
+
+                if deploy_response.status_code not in [200, 201]:
+                    logger.warning(f"Failed to deploy variables: {deploy_response.text}")
+
+            logger.info(f"Config-group '{config_group_name}' attached successfully to {device_uuid}")
+            return True
+
+        except (TemplateError, AttachmentError):
+            raise
+        except Exception as e:
+            raise AttachmentError(
+                f"Failed to attach config-group '{config_group_name}': {e}"
+            ) from e
+
+    def _wait_for_task(
+        self, task_id: str, timeout: int = 600, poll_interval: int = 10
+    ) -> bool:
+        """Wait for vManage task to complete.
+
+        Args:
+            task_id: Task ID to monitor
+            timeout: Maximum time to wait in seconds
+            poll_interval: Seconds between checks
+
+        Returns:
+            True if task completed successfully
+
+        Raises:
+            AttachmentError: If task fails or times out
+        """
+        logger.info(f"Waiting for task {task_id} to complete")
+
+        start_time = time.time()
+        success_statuses = ["Success", "success"]
+
+        while True:
+            elapsed = time.time() - start_time
+            if elapsed > timeout:
+                raise AttachmentError(f"Timeout waiting for task {task_id}")
+
+            try:
+                response = self.session.get(f"dataservice/device/action/status/{task_id}")
+                if response.status_code == 200:
+                    task_data = response.json()
+
+                    # Check task status
+                    status = task_data.get("summary", {}).get("status")
+                    if status in success_statuses:
+                        logger.info(f"Task {task_id} completed successfully")
+                        return True
+                    elif status and "fail" in status.lower():
+                        raise AttachmentError(f"Task {task_id} failed: {task_data}")
+
+                    # Log progress
+                    if int(elapsed) % 30 == 0 and elapsed > 0:
+                        logger.info(f"Waiting for task {task_id}... ({int(elapsed)}s elapsed)")
+
+            except AttachmentError:
+                raise
+            except Exception as e:
+                logger.debug(f"Error checking task status: {e}")
+
+            time.sleep(poll_interval)

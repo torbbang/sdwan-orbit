@@ -1,0 +1,21 @@
+<config xmlns="http://tail-f.com/ns/config/1.0">
+  <system xmlns="http://viptela.com/system">
+    <personality>vbond</personality>
+    <device-model>vbond</device-model>
+    <host-name>validator</host-name>
+    <system-ip>1.1.1.30</system-ip>
+    <site-id>1</site-id>
+    <organization-name>containerlab</organization-name>
+  </system>
+  <vpn xmlns="http://viptela.com/vpn">
+    <vpn-instance>
+      <vpn-id>0</vpn-id>
+      <interface>
+        <if-name>eth1</if-name>
+        <ip>
+          <address>10.0.0.3/24</address>
+        </ip>
+      </interface>
+    </vpn-instance>
+  </vpn>
+</config>

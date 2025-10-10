@@ -4,7 +4,7 @@
 
 ORBIT is a modern, CI/CD-optimized Python toolkit for automating Cisco SD-WAN device onboarding and configuration management. It handles vManage-side operations after devices have discovered vBond, accepting device information from any source.
 
-**Current Status**: Week 1 complete (foundation), Week 2 in progress (edge onboarding)
+**Current Status**: Week 1-2 complete (foundation + edge onboarding), ready for integration testing
 
 ## Core Principles
 
@@ -55,24 +55,21 @@ ORBIT
 - MRF regions and subregions backup/restore (20.7+)
 - Version detection and compatibility handling
 
-### 🔄 In Progress
-
 **Edge Device Onboarding:**
-- Find devices by serial number in vManage inventory
-- Accept/approve devices and install certificates
-- Attach device templates with variables
-- Attach config-groups (20.12+)
-- Wait for sync complete
-
-See TODO.md for detailed task breakdown.
+- Find devices by serial number in vManage inventory ✅
+- Wait for certificate installation ✅
+- Attach device templates with variables ✅
+- Attach config-groups (20.12+) ✅
+- 38 unit tests with 81% coverage ✅
+- Test topology available in `tests/topology/` ✅
 
 ### 📋 Backlog
 
+- Integration tests against real infrastructure
 - Containerlab parser implementation
-- Certificate management (custom CA vs built-in - decision needed)
 - CI/CD helper utilities
-- Comprehensive tests
 - Additional parsers (CML, Terraform)
+- Performance testing and optimization
 
 ## Device Inventory Format
 
@@ -317,22 +314,16 @@ See DECISIONS.md for complete list. Key decisions:
 7. **ADR-008**: Catalystwan for vManage API
 8. **ADR-011**: Library-first design
 
-## Current Sprint (Week 2)
+## Current Sprint (Week 3+)
 
-**Goal**: Implement edge device onboarding
+**Goal**: Integration testing and containerlab parser
 
-**Tasks**:
-1. Research catalystwan edge APIs
-2. Implement edge discovery by serial
-3. Implement certificate handling
-4. Implement template attachment
-5. Implement config-group attachment (20.12+)
-6. Error handling and testing
-
-**Blockers/Questions**:
-- How to query devices by serial in catalystwan?
-- How to check if certificate is already installed?
-- How to attach templates with variables?
+**Next Tasks**:
+1. Write integration tests using `tests/topology/`
+2. Implement containerlab parser
+3. Add CI/CD examples
+4. Performance testing
+5. Documentation improvements
 
 See TODO.md for detailed task breakdown.
 
@@ -455,7 +446,7 @@ When working on this project:
 9. **Always** add type hints and docstrings
 10. **Test** manually before marking complete
 
-**Current Priority**: Edge device onboarding implementation (see TODO.md Week 2 section)
+**Current Priority**: Integration testing and containerlab parser (see TODO.md)
 
 ## Getting Started (for new contributors)
 
@@ -472,20 +463,20 @@ When working on this project:
 **MVP Complete When:**
 - ✅ Controllers/validators onboarding works
 - ✅ Backup/restore works
-- 🔄 Edge onboarding works (in progress)
-- 🔄 Template attachment works
-- 🔄 Containerlab parser works
-- 📋 Basic tests pass
-- 📋 Documentation complete
+- ✅ Edge onboarding works
+- ✅ Template/config-group attachment works
+- ✅ Unit tests pass (38 tests, 81% coverage)
+- 📋 Integration tests
+- 📋 Containerlab parser works
 
 **v1.0 Complete When:**
 - All MVP features
-- >80% test coverage
+- Integration tests complete
 - CI/CD examples
 - Migration guide
 - Troubleshooting docs
 
-Current status: **~60% to MVP**, **~40% to v1.0**
+Current status: **~85% to MVP**, **~60% to v1.0**
 
 ---
 

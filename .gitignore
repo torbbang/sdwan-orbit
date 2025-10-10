@@ -63,5 +63,17 @@ Thumbs.db
 
 # Project specific
 /devices.yaml
-*.clab.yml
 sdwan-lab-deployment-tool/
+
+# Containerlab
+clab-*/
+*.clab.yml
+!tests/topology/*.clab.yml
+
+# Temporary documentation
+TESTING_*.md
+IMPLEMENTATION_*.md
+ANSWERS_*.md
+
+# Binaries
+clab

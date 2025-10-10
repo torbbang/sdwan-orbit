@@ -7,6 +7,8 @@ A modern, CI/CD-optimized Python toolkit for automating Cisco SD-WAN device onbo
 - **Tool-Agnostic**: Works with device info from any source (containerlab, CML, Terraform, manual YAML)
 - **Simple Input**: Generic YAML/JSON device list with optional parsers for common tools
 - **vManage Integration**: Handles device onboarding after they've discovered vBond
+- **Edge Device Onboarding**: Certificate installation, template/config-group attachment
+- **Template & Config-Group Support**: Attach device templates (pre-20.12) or configuration groups (20.12+)
 - **Configuration Management**: Backup/restore templates and policies via sastre
 - **CI/CD Ready**: Designed for automated pipelines with proper error handling
 - **Clean Architecture**: Library-first design with optional CLI
@@ -44,9 +46,18 @@ validators:
   - ip: 172.16.0.201
 
 edges:
-  - uuid: edge1-uuid
+  - serial: C8K-12345678-ABCD  # Device serial number
     system_ip: 10.1.0.1
     site_id: 1
+    template_name: branch_template  # Optional: device template
+    values:  # Optional: template variables
+      hostname: edge1
+      vpn0_inet_ip: 192.168.1.10/24
+
+  - serial: C8K-87654321-EFGH
+    system_ip: 10.2.0.1
+    site_id: 2
+    config_group: branch_config_group  # Optional: config group (20.12+)
 ```
 
 ### 2. Onboard devices
