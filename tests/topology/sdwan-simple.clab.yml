@@ -3,34 +3,34 @@ name: sdwan-simple
 topology:
   nodes:
     manager:
-      kind: vr_cisco_sdwan
+      kind: cisco_sdwan
       type: manager
       image: vrnetlab/cisco_sdwan-manager:20.16.1
       startup-config: manager-config.xml
 
-    controller:
-      kind: vr_cisco_sdwan
-      type: controller
-      image: vrnetlab/cisco_sdwan-controller:20.16.1
-      startup-config: controller-config.xml
-
-    validator:
-      kind: vr_cisco_sdwan
-      type: validator
-      image: vrnetlab/cisco_sdwan-validator:20.16.1
-      startup-config: validator-config.xml
-
-    cedge:
-      kind: cisco_c8000v
-      type: controller
-      image: vrnetlab/cisco_c8000v:17.16.01a
-      startup-config: cedge-bootstrap.cfg
-
-    br0:
-      kind: bridge
-
-  links:
-    - endpoints: ["manager:eth1", "br0:eth1"]
-    - endpoints: ["controller:eth1", "br0:eth2"]
-    - endpoints: ["validator:eth1", "br0:eth3"]
-    - endpoints: ["cedge:Gi2", "br0:eth4"]
+#    controller:
+#      kind: cisco_sdwan
+#      type: controller
+#      image: vrnetlab/cisco_sdwan-controller:20.16.1
+#      startup-config: controller-config.xml
+#
+#    validator:
+#      kind: cisco_sdwan
+#      type: validator
+#      image: vrnetlab/cisco_sdwan-validator:20.16.1
+#      startup-config: validator-config.xml
+#
+#    cedge:
+#      kind: cisco_c8000v
+#      type: controller
+#      image: vrnetlab/cisco_c8000v:17.16.01a
+#      startup-config: cedge-bootstrap.cfg
+#
+#    br0:
+#      kind: bridge
+#
+#  links:
+#    - endpoints: ["manager:eth1", "br0:eth1"]
+#    - endpoints: ["controller:eth1", "br0:eth2"]
+#    - endpoints: ["validator:eth1", "br0:eth3"]
+#    - endpoints: ["cedge:Gi2", "br0:eth4"]

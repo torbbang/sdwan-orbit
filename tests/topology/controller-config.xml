@@ -6,6 +6,11 @@
     <system-ip>1.1.1.20</system-ip>
     <site-id>1</site-id>
     <organization-name>containerlab</organization-name>
+    <vbond>
+      <local></local>
+      <remote>44.227.177.103</remote>
+      <port>12346</port>
+    </vbond>
   </system>
   <vpn xmlns="http://viptela.com/vpn">
     <vpn-instance>
@@ -15,6 +20,29 @@
         <ip>
           <address>10.0.0.2/24</address>
         </ip>
+        <tunnel-interface>
+          <encapsulation>
+            <encap>ipsec</encap>
+          </encapsulation>
+          <color>
+            <value>default</value>
+          </color>
+          <allow-service>
+            <sshd>true</sshd>
+            <netconf>true</netconf>
+          </allow-service>
+        </tunnel-interface>
+        <shutdown>false</shutdown>
+      </interface>
+    </vpn-instance>
+    <vpn-instance>
+      <vpn-id>512</vpn-id>
+      <interface>
+        <if-name>eth0</if-name>
+        <ip>
+          <dhcp-client>true</dhcp-client>
+        </ip>
+        <shutdown>false</shutdown>
       </interface>
     </vpn-instance>
   </vpn>
